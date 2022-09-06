@@ -1,3 +1,38 @@
+import { env } from '$env/dynamic/public'
+
+export const GITHUB_LABEL_PREFIX = env?.GITHUB_LABEL_PREFIX == undefined ? '+' : env.GITHUB_LABEL_PREFIX
+export const GITHUB_LABEL_PUBLISHED = env?.GITHUB_LABEL_PUBLISHED || '+page'
+export const GITHUB_REPO = env?.GITHUB_REPO || 'ak4zh/svelte-git-cms'
+export const GITHUB_ALLOWED_AUTHORS = (env?.GITHUB_ALLOWED_AUTHORS || GITHUB_REPO.split('/')[0]).split(',').filter(e => e)
+export const SLUG_SUFFIX_ISSUE_NUMBER = env?.SLUG_SUFFIX_ISSUE_NUMBER
+
+export type Config = {
+	github_repo: string,
+	label_prefix?: string,
+	label_published?: string,
+	allowed_authors?: string,
+	slug_suffix_issue_number?: boolean,
+	github_token?: string
+}
+
+export type ParsedConfig = {
+	github_repo: string,
+	label_prefix: string,
+	label_published: string,
+	allowed_authors: string[],
+	slug_suffix_issue_number: boolean,
+	github_token?: string
+}
+
+export type ParsedConfig = {
+	github_repo: string,
+	label_prefix?: string,
+	label_published?: string,
+	allowed_authors?: string,
+	slug_suffix_issue_number?: boolean,
+	github_token?: string
+}
+
 export type PostLabel = {
 	name: string;
 	description: string;
