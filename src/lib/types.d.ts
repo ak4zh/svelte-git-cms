@@ -120,6 +120,7 @@ export type IssueAuthor = {
 export type Post = BaseIssue & {
     author: IssueAuthor;
 	tags: string[];
+	reading_time: string
 }
 
 export type PostLabels = Object.<string, PostLabel>

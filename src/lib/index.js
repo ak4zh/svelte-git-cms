@@ -4,6 +4,16 @@ const GITHUB_REPO_BASE_URL = `https://api.github.com/repos`
 const labelActions = ['created', 'edited', 'deleted']
 const issueActions = ['opened', 'edited', 'deleted', 'pinned', 'unpinned', 'labeled', 'unlabeled']
 
+
+/**
+ * @param {string} text
+ * @returns {string}
+ */
+function readingTime(text) {
+    let minutes = Math.ceil(text.trim().split(' ').length / 225)
+    return minutes > 1 ? `${minutes} minutes` : `${minutes} minute`
+}
+
 /** @type {import('svelte/store').Writable<import('./types').ParsedConfig>} */
 export const parsedConfig = writable({
         github_repo: 'ak4zh/svelte-git-cms',
@@ -116,7 +126,8 @@ function parsePostLabel(label) {
         },
         tags: issue.labels
             .filter(e => e.name !== get(parsedConfig).label_published &&  e.name.startsWith(get(parsedConfig).label_prefix))
-            .map(a => labelToTag(a.name))
+            .map(a => labelToTag(a.name)),
+        reading_time: readingTime(issue.body)
     }
 }
 

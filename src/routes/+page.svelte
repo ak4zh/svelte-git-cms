@@ -4,15 +4,16 @@
 </script>
 
 <ul>
-    {#each Object.keys(data.labels) as label}
-        <li>{label}</li>
+    {#each Object.entries(data.labels) as [labelName, labelData]}
+        <li style="background-color: #{labelData.color};">{labelName}</li>
     {/each}
 </ul>
 
 {#if Object.keys(data.posts).length}
     <ul>
         {#each Object.entries(data.posts) as [slug, post]}
-        <li>    
+        <li>
+            <b>{post.reading_time}</b>
             /{slug}
             {post.title}
             {post.body}
