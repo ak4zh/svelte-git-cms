@@ -26,6 +26,20 @@
     }
     ```
 
+    - `githubSync` params
+
+        - **github_repo**: your github repo `{username}/{repo-name}`
+        - **label_prefix**: labels with this prefix will be used as post tags (default value `+`)
+        - **label_published**: all issue with this label will appear on webiste (default value `+page`)
+        - **allowed_authors**: comma separtated usernames (default value repo owner)
+        - **slug_suffix_issue_number** if enabled slug will end with `-{issue-number}` to ensure unique slug
+        - **github_token** provide it else you will hit github api limits
+
+
+    - Notes
+        - If you do not like the `+` prefix you can change it by set it to any other character or leave it empty for no prefix. In that case all labels will be used as tags.
+
+
 3) Create an webhook route for github, so github can inform your app when issues or labels change.
     
     a) Create webhook endpoint `src/routes/api/git/webhook/+server.js`
@@ -92,14 +106,6 @@
         No posts
     {/if}
     ```
-
-## Notes
-
-- If everything is setup correctly any new issue you create with label `+page` will be instantly available on your webiste. (can be customized by setting env `GITHUB_LABEL_PUBLISHED`)
-- You can also attach more labels on the issue which will be available as `tags` property in the `post` object. (label set in `GITHUB_LABEL_PUBLISHED` won't be available in tags, as this label is used tpo determine which issue should appear as post on the website)
-- All labels must have a prefix `+` example `+Idea`, `+Personal` etc, prefix will be removed when converted to post tags.
-- If you do not like the `+` prefix you can change it by setting environmanet variable `GITHUB_LABEL_PREFIX` to any other character or leave it empty for no prefix.
-
 
 ## Inspiration
 
