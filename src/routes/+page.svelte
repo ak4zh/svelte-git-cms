@@ -16,7 +16,7 @@
             <b>{post.reading_time}</b>
             /{slug}
             {post.title}
-            {post.body}
+            {@html post.body}
             <p>{post.tags}</p>
         </li>
         {/each}

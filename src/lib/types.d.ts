@@ -96,7 +96,6 @@ export type GithubUser = {
 export type BaseIssue = {
 	number: number,
     title: string;
-	body: string;
 	created_at: Date;
 	updated_at: Date;
 	reactions: GithubReactions;
@@ -105,6 +104,9 @@ export type BaseIssue = {
 export type GithubIssue = BaseIssue & {
 	user: GithubUser;
 	html_url: string;
+	body: string;
+	body_html: string;
+	body_text: string;
 	comments_url: string;
 	labels: {
 		name: string;
@@ -118,10 +120,17 @@ export type IssueAuthor = {
 }
 
 export type Post = BaseIssue & {
+	front_matter: Object.<string, string>;
     author: IssueAuthor;
 	tags: string[];
+	body: string;
 	reading_time: string
 }
 
 export type PostLabels = Object.<string, PostLabel>
 export type Posts = Object.<string, Post>
+
+export type ParsedContent = {
+    content: string,
+	data: Object<string, string>
+}

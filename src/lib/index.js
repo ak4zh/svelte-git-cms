@@ -10,8 +10,29 @@ const issueActions = ['opened', 'edited', 'deleted', 'pinned', 'unpinned', 'labe
  * @returns {string}
  */
 function readingTime(text) {
-    let minutes = Math.ceil(text.trim().split(' ').length / 225)
+    let minutes = Math.ceil((text || '').trim().split(' ').length / 225)
     return minutes > 1 ? `${minutes} minutes` : `${minutes} minute`
+}
+
+
+/**
+ * @param {string} text
+ * @returns {import('./types').ParsedContent}
+ */
+ function parseFrontMatter(text) {
+    let delimiter = text.match(/^\-+/g)
+    let parsed = {content: text, data: {}}
+	let cleaner = new RegExp(`^${delimiter}|${delimiter}$`,"g");
+    if (delimiter) {
+        let frontMatterText = (text.match(/^(-+)[\s\S]+\1/g) || [''])[0]
+        let cleanFrontMatter = frontMatterText.replace(cleaner, '')
+        let frontMatters = [...cleanFrontMatter.matchAll(/([\w_]+):(.+)/g)]
+        frontMatters.forEach(m => {
+            // @ts-ignore
+            parsed.data[m[1]] = m[2]
+        })
+    }
+    return parsed
 }
 
 /** @type {import('svelte/store').Writable<import('./types').ParsedConfig>} */
@@ -53,7 +74,7 @@ export const synced = writable(false)
 function getHeaders() {
     /** @type {Object<string, string>} */
     const gitHeaders = {
-        accept: 'application/vnd.github+json'
+        accept: 'application/vnd.github.full+json'
     }
     if (get(parsedConfig)?.github_token) {
         gitHeaders['Authorization'] = `token ${get(parsedConfig)?.github_token}`
@@ -112,10 +133,17 @@ function parsePostLabel(label) {
  * @returns {import('./types').Post}
  */
  function parsePost(issue) {
+    const { data } = parseFrontMatter(issue.body)
+    let body_html = issue.body_html 
+    if (Object.keys(data).length) {
+        body_html = issue.body_html.replace(/[\s\S]+?<\/h2>/g, '')
+    }
+    data.slug = data.slug || safeSlugify(issue.title, issue.number)
     return {
+        front_matter: data,
         number: issue.number,
         title: issue.title,
-        body: issue.body,
+        body: body_html,
         created_at: issue.created_at,
         updated_at: issue.updated_at,
         reactions: issue.reactions,
@@ -127,7 +155,7 @@ function parsePostLabel(label) {
         tags: issue.labels
             .filter(e => e.name !== get(parsedConfig).label_published &&  e.name.startsWith(get(parsedConfig).label_prefix))
             .map(a => labelToTag(a.name)),
-        reading_time: readingTime(issue.body)
+        reading_time: readingTime(issue.body_text)
     }
 }
 
@@ -146,18 +174,17 @@ export async function handleWebhook(request) {
     ) {
         /** @type {import('./types').GithubIssue} */
         let currentIssue = data.issue
+        let parsedPost = parsePost(currentIssue)
         let existingIssues = get(posts)
-        let slug = safeSlugify(currentIssue.title, currentIssue.number)
         let issueLabels = currentIssue.labels.map(function (obj) {
             return obj.name
         })
         let unpublished = data.action === 'unlabeled' && !issueLabels.includes(get(parsedConfig).label_published)
         if ((data.action === 'deleted') || unpublished) {
-            delete existingIssues[slug]
+            delete existingIssues[parsedPost.slug]
             posts.set(existingIssues)
         } else if (issueLabels.includes(get(parsedConfig).label_published)) {
-            let newPost = parsePost(currentIssue)
-            existingIssues[slug] = newPost
+            existingIssues[parsedPost.slug] = parsedPost
             posts.set(existingIssues)
         }
     } else if (
