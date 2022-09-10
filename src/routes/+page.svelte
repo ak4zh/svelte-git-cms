@@ -1,6 +1,6 @@
 <script>
     /** @type {import('./$types').PageServerData} */
-    export let data;
+    export let data
 </script>
 
 <ul>

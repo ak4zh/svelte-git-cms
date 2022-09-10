@@ -1,8 +1,8 @@
 import { writable, get } from "svelte/store";
 
 const GITHUB_REPO_BASE_URL = `https://api.github.com/repos`
-const labelActions = ['created', 'edited', 'deleted']
-const issueActions = ['opened', 'edited', 'deleted', 'pinned', 'unpinned', 'labeled', 'unlabeled']
+const LABEL_ACTIONS = ['created', 'edited', 'deleted']
+const ISSUE_ACTIONS = ['opened', 'edited', 'deleted', 'pinned', 'unpinned', 'labeled', 'unlabeled']
 
 
 /**
@@ -35,20 +35,25 @@ function readingTime(text) {
     return parsed
 }
 
-/** @type {import('svelte/store').Writable<import('./types').ParsedConfig>} */
-export const parsedConfig = writable({
-        github_repo: 'ak4zh/svelte-git-cms',
-        label_published: '+page',
-        label_prefix: '+',
+/**
+ * @param {string} repo_name 
+ * @returns {import('./types').ParsedConfig}
+ */
+function getDefaultConfig(repo_name='ak4zh/svelte-git-cms') {
+    return {
+        github_repo: repo_name,
+        label_published: '',
+        label_prefix: '',
         slug_suffix_issue_number: true,
-        allowed_authors: ['ak4zh']
-})
-/** @type {import('svelte/store').Writable<import('./types').Posts>} */
-export const posts = writable({})
-/** @type {import('svelte/store').Writable<import('./types').PostLabels>} */
-export const labels = writable({})
-/** @type {import('svelte/store').Writable<boolean>} */
-export const synced = writable(false)
+        allowed_authors: repo_name.split('/')[0].split(',')
+}
+}
+
+/** @type {import('svelte/store').Writable<Object<string, import('./types').ParsedConfig>>} */
+export const parsedConfigs = writable({})
+
+/** @type {import('svelte/store').Writable<Object<string, import('./types').CMS>>} */
+export const cms = writable({})
 
 /**
  * @typedef {"next" | "prev" | "last" | "first"} LinkType
@@ -71,23 +76,28 @@ export const synced = writable(false)
 	return output;
 }
 
-function getHeaders() {
+/**
+ * @param {import('./types').ParsedConfig} config
+ * @returns {Object<string, string>}
+ */
+function getHeaders(config) {
     /** @type {Object<string, string>} */
     const gitHeaders = {
         accept: 'application/vnd.github.full+json'
     }
-    if (get(parsedConfig)?.github_token) {
-        gitHeaders['Authorization'] = `token ${get(parsedConfig)?.github_token}`
+    if (config.github_token) {
+        gitHeaders['Authorization'] = `token ${config.github_token}`
     };
     return gitHeaders
 }
 
 /**
  * @param {string} label
+ * @param {string} label_prefix
  * @returns {string}
  */
-function labelToTag(label) {
-    return label.slice(get(parsedConfig).label_prefix.length)
+function labelToTag(label, label_prefix) {
+    return label_prefix ? label.slice(label_prefix.length) : label
 }
 
 /**
@@ -109,19 +119,21 @@ function slugify(text) {
 /**
  * @param {string | number} text
  * @param {string | number | undefined} suffix
+ * @param {boolean} slug_suffix_issue_number
  * @returns {string}
  */
-function safeSlugify(text, suffix) {
-    return get(parsedConfig).slug_suffix_issue_number && suffix ? slugify(text) + `-${suffix}` : slugify(text)
+function safeSlugify(text, suffix, slug_suffix_issue_number=true) {
+    return slug_suffix_issue_number && suffix ? slugify(text) + `-${suffix}` : slugify(text)
 }
 
 /**
  * @param {import('./types').GithubLabel} label
+ * @param {string} label_prefix
  * @returns {import('./types').PostLabel}
  */
-function parsePostLabel(label) {
+function parsePostLabel(label, label_prefix) {
     return {
-        name: labelToTag(label.name),
+        name: labelToTag(label.name, label_prefix),
         color: label.color,
         description: label.description,
         default: label.default
@@ -130,9 +142,10 @@ function parsePostLabel(label) {
 
 /**
  * @param {import('./types').GithubIssue} issue
+ * @param {import('./types').ParsedConfig} config
  * @returns {import('./types').Post}
  */
- function parsePost(issue) {
+ function parsePost(issue, config) {
     const { data } = parseFrontMatter(issue.body)
     let body_html = issue.body_html 
     if (Object.keys(data).length) {
@@ -153,8 +166,8 @@ function parsePostLabel(label) {
             admin: issue.user.site_admin
         },
         tags: issue.labels
-            .filter(e => e.name !== get(parsedConfig).label_published &&  e.name.startsWith(get(parsedConfig).label_prefix))
-            .map(a => labelToTag(a.name)),
+            .filter(e => e.name !== config.label_published &&  e.name.startsWith(config.label_prefix))
+            .map(a => labelToTag(a.name, config.label_prefix)),
         reading_time: readingTime(issue.body_text)
     }
 }
@@ -164,87 +177,92 @@ function parsePostLabel(label) {
  */
 export async function handleWebhook(request) {
     const data = await request.json();
-    if (
-        // received event is about an issue
-        data.issue 
-        // received event is an issue event we care about
-        && issueActions.includes(data.action) 
-        // issue is created by allowed authors
-        && get(parsedConfig).allowed_authors.includes(data.issue.user.login)
-    ) {
-        /** @type {import('./types').GithubIssue} */
-        let currentIssue = data.issue
-        let parsedPost = parsePost(currentIssue)
-        let existingIssues = get(posts)
-        let issueLabels = currentIssue.labels.map(function (obj) {
-            return obj.name
-        })
-        let unpublished = data.action === 'unlabeled' && !issueLabels.includes(get(parsedConfig).label_published)
-        if ((data.action === 'deleted') || unpublished) {
-            delete existingIssues[parsedPost.slug]
-            posts.set(existingIssues)
-        } else if (issueLabels.includes(get(parsedConfig).label_published)) {
-            existingIssues[parsedPost.slug] = parsedPost
-            posts.set(existingIssues)
-        }
-    } else if (
-            // received event is about a label
-            data.label 
-            // label has a name just being extra cautious
-            && data.label.name 
-            // published label is not allows as a tag
-            && data.label.name !== get(parsedConfig).label_published
-            // label is created for the the svelte-git-cms
-            && data.label.name.startsWith(get(parsedConfig).label_prefix)
-            // received event is a label event we care about
-            && labelActions.includes(data.action)
+    let repo = data.repository.full_name
+    let config = get(parsedConfigs)[repo] || getDefaultConfig(repo)
+    if (config) {
+        if (
+            // received event is about an issue
+            data.issue 
+            // received event is an issue event we care about
+            && ISSUE_ACTIONS.includes(data.action) 
+            // issue is created by allowed authors
+            && config.allowed_authors.includes(data.issue.user.login)
         ) {
-        /** @type {import('./types').GithubLabel} */
-        let currentLabel = data.label
-        let currentTag = labelToTag(currentLabel.name)
-        let currentLabels = get(labels)
-        if (data.action === 'deleted') {
-            delete currentLabels[currentTag]
-            labels.set(currentLabels)
-        } else {
-            let newLabel = parsePostLabel(currentLabel)
-            currentLabels[currentTag] = newLabel
-            labels.set(currentLabels)   
+            /** @type {import('./types').GithubIssue} */
+            let currentIssue = data.issue
+            let parsedPost = parsePost(currentIssue, config)
+            let existingIssues = get(cms)[repo].posts
+            let issueLabels = currentIssue.labels.map(function (obj) {
+                return obj.name
+            })
+            // label removed and we have a published label set and remaining labels does not contain published label
+            let unpublished = data.action === 'unlabeled' && config.label_published && !issueLabels.includes(config.label_published)
+            if ((data.action === 'deleted') || unpublished) {
+                delete existingIssues[parsedPost.front_matter.slug]
+                cms.update(data => data[repo].posts = existingIssues)
+            } else if (!config.label_published || issueLabels.includes(config.label_published)) {
+                existingIssues[parsedPost.front_matter.slug] = parsedPost
+                cms.update(data => data[repo].posts = existingIssues)
+            }
+        } else if (
+                // received event is about a label
+                data.label 
+                // label has a name just being extra cautious
+                && data.label.name 
+                // published label is not allows as a tag
+                && data.label.name !== config.label_published
+                // label is created for the the svelte-git-cms
+                && data.label.name.startsWith(config.label_prefix)
+                // received event is a label event we care about
+                && LABEL_ACTIONS.includes(data.action)
+            ) {
+            /** @type {import('./types').GithubLabel} */
+            let currentLabel = data.label
+            let currentTag = labelToTag(currentLabel.name, config.label_prefix)
+            let currentLabels = get(cms)[repo].labels
+            if (data.action === 'deleted') {
+                delete currentLabels[currentTag]
+                cms.update(data => data[repo].labels = currentLabels)
+            } else {
+                let newLabel = parsePostLabel(currentLabel, config.label_prefix)
+                currentLabels[currentTag] = newLabel
+                cms.update(data => data[repo].labels = currentLabels)
+            }
         }
+    
     }
     return new Response('ok');
 }
 
 /**
- * 
+ * @param {import('./types').ParsedConfig} config
  * @returns {Promise<import('./types').Posts>}
  */
-export async function getPosts() {
+export async function getPosts(config) {
     let next = null
 	/** @type {import('./types').Posts} */
 	let existingIssues = {}
-    let url = `${GITHUB_REPO_BASE_URL}/${get(parsedConfig).github_repo}/issues?` + new URLSearchParams({
+    let url = `${GITHUB_REPO_BASE_URL}/${config.github_repo}/issues?` + new URLSearchParams({
         'state': 'all',
-        'labels': get(parsedConfig).label_published,
+        'labels': config.label_published,
         'per_page': '100',
         'pulls': 'false',
     })
     // pull issues created by allowed author only
-    if (get(parsedConfig).allowed_authors.length === 1) {
-        url += new URLSearchParams({'creator': get(parsedConfig).allowed_authors[0]})
+    if (config.allowed_authors.length === 1) {
+        url += new URLSearchParams({'creator': config.allowed_authors[0]})
     }
     do {
-		const response = await fetch(next?.url || url, { headers: getHeaders() });
+		const response = await fetch(next?.url || url, { headers: getHeaders(config) });
         const gitIssues = await response.json();
         if ('message' in gitIssues && response.status > 400)
 			throw new Error(response.status + ' ' + response.statusText + '\n' + (gitIssues && gitIssues.message));
         gitIssues.forEach(
 			/** @param {import('./types').GithubIssue} issue */
 			(issue) => {
-                if (get(parsedConfig).allowed_authors.includes(issue.user.login)) {
-                    let slug = safeSlugify(issue.title, issue.number)
-                    let newPost = parsePost(issue)
-                    existingIssues[slug] = newPost
+                if (config.allowed_authors.includes(issue.user.login)) {
+                    let newPost = parsePost(issue, config)
+                    existingIssues[newPost.front_matter.slug] = newPost
                 }
 			}
 		);
@@ -255,26 +273,26 @@ export async function getPosts() {
 }
 
 /**
- * 
+ * @param {import('./types').ParsedConfig} config
  * @returns {Promise<import('./types').PostLabels>}
  */
-export async function getTags() {
+export async function getTags(config) {
     let next = null
 	/** @type {import('./types').PostLabels} */
 	let existingLabels = {}
-    let url =  `${GITHUB_REPO_BASE_URL}/${get(parsedConfig).github_repo}/labels?` + new URLSearchParams({
+    let url =  `${GITHUB_REPO_BASE_URL}/${config.github_repo}/labels?` + new URLSearchParams({
         'per_page': '100',
     })
     do {
-		const response = await fetch(next?.url || url, { headers: getHeaders() });
+		const response = await fetch(next?.url || url, { headers: getHeaders(config) });
 		const gitLabels = await response.json();
 		if ('message' in gitLabels && response.status > 400)
 			throw new Error(response.status + ' ' + response.statusText + '\n' + (gitLabels && gitLabels.message));
         gitLabels.forEach(
 			/** @param {import('./types').GithubLabel} label */
 			(label) => {
-                if (label.name !== get(parsedConfig).label_published && label.name.startsWith(get(parsedConfig).label_prefix)) {
-                    existingLabels[labelToTag(label.name)] = parsePostLabel(label)
+                if (label.name !== config.label_published && label.name.startsWith(config.label_prefix)) {
+                    existingLabels[labelToTag(label.name, config.label_prefix)] = parsePostLabel(label, config.label_prefix)
                 }
 			}
 		);
@@ -288,15 +306,25 @@ export async function getTags() {
  * @param {import('./types').Config} config
  */
 export async function githubSync(config) {
-    if (!get(synced)) {
+    if (!Object.keys(get(parsedConfigs)).includes(config.github_repo)) {
         let author = (config.allowed_authors || '').split(',').filter(e => e)
         if (!author.length) {
             author = config.github_repo.split('/')[0].split(',').filter(e => e)
         }
         delete config.allowed_authors
-        parsedConfig.set({...get(parsedConfig), ...config, allowed_authors: author})
-        posts.set(await getPosts())
-        labels.set(await getTags())    
+        /** @type {import('./types').ParsedConfig} */
+        let currentConfig = {...getDefaultConfig(config.github_repo), ...config, allowed_authors: author}
+        let existingPosts = await getPosts(currentConfig)
+        let existingLabels = await getTags(currentConfig)
+        let currentCMS = get(cms)
+        console.log(currentCMS)
+        currentCMS[currentConfig.github_repo] = {
+            posts: existingPosts,
+            labels: existingLabels
+        }
+        let existingConfigs = get(parsedConfigs)
+        existingConfigs[config.github_repo] = currentConfig
+        parsedConfigs.set(existingConfigs)
+        console.log(get(cms))
     }
-    synced.set(true)
 }

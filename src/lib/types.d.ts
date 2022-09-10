@@ -8,10 +8,10 @@ export const SLUG_SUFFIX_ISSUE_NUMBER = env?.SLUG_SUFFIX_ISSUE_NUMBER
 
 export type Config = {
 	github_repo: string,
-	label_prefix?: string,
-	label_published?: string,
-	allowed_authors?: string,
+	label_prefix: string,
+	label_published: string,
 	slug_suffix_issue_number?: boolean,
+	allowed_authors?: string,
 	github_token?: string
 }
 
@@ -133,4 +133,9 @@ export type Posts = Object.<string, Post>
 export type ParsedContent = {
     content: string,
 	data: Object<string, string>
+}
+
+export type CMS = {
+	posts: Posts,
+	labels: PostLabels
 }
