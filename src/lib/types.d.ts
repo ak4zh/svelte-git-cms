@@ -120,15 +120,18 @@ export type IssueAuthor = {
 }
 
 export type Post = BaseIssue & {
-	front_matter: Object.<string, string>;
+	front_matter: {
+		slug: string;
+		[key: string]: string
+	};
     author: IssueAuthor;
 	tags: string[];
 	body: string;
 	reading_time: string
 }
 
-export type PostLabels = Object.<string, PostLabel>
-export type Posts = Object.<string, Post>
+export type PostLabels = Object<string, Post>
+export type Posts = Object<string, Post>
 
 export type ParsedContent = {
     content: string,
@@ -138,4 +141,9 @@ export type ParsedContent = {
 export type CMS = {
 	posts: Posts,
 	labels: PostLabels
+}
+
+export type SortedCMS = {
+	posts: Post[],
+	labels: PostLabel[]
 }

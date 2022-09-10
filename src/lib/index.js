@@ -177,9 +177,10 @@ function parsePostLabel(label, label_prefix) {
  */
 export async function handleWebhook(request) {
     const data = await request.json();
-    let repo = data.repository.full_name
+    let repo = String(data.repository.full_name)
     let config = get(parsedConfigs)[repo] || getDefaultConfig(repo)
     if (config) {
+        let currentCMS = get(cms)[repo]
         if (
             // received event is about an issue
             data.issue 
@@ -191,18 +192,17 @@ export async function handleWebhook(request) {
             /** @type {import('./types').GithubIssue} */
             let currentIssue = data.issue
             let parsedPost = parsePost(currentIssue, config)
-            let existingIssues = get(cms)[repo].posts
             let issueLabels = currentIssue.labels.map(function (obj) {
                 return obj.name
             })
             // label removed and we have a published label set and remaining labels does not contain published label
             let unpublished = data.action === 'unlabeled' && config.label_published && !issueLabels.includes(config.label_published)
             if ((data.action === 'deleted') || unpublished) {
-                delete existingIssues[parsedPost.front_matter.slug]
-                cms.update(data => data[repo].posts = existingIssues)
+                delete currentCMS.posts[String(currentIssue.number)]
+                cms.set({...get(cms), ...{[repo]: currentCMS}})
             } else if (!config.label_published || issueLabels.includes(config.label_published)) {
-                existingIssues[parsedPost.front_matter.slug] = parsedPost
-                cms.update(data => data[repo].posts = existingIssues)
+                currentCMS.posts[String(currentIssue.number)] = parsedPost
+                cms.set({...get(cms), ...{[repo]: currentCMS}})
             }
         } else if (
                 // received event is about a label
@@ -218,15 +218,13 @@ export async function handleWebhook(request) {
             ) {
             /** @type {import('./types').GithubLabel} */
             let currentLabel = data.label
-            let currentTag = labelToTag(currentLabel.name, config.label_prefix)
-            let currentLabels = get(cms)[repo].labels
             if (data.action === 'deleted') {
-                delete currentLabels[currentTag]
-                cms.update(data => data[repo].labels = currentLabels)
+                delete currentCMS.labels[String(currentLabel.id)]
+                cms.set({...get(cms), ...{[repo]: currentCMS}})
             } else {
                 let newLabel = parsePostLabel(currentLabel, config.label_prefix)
-                currentLabels[currentTag] = newLabel
-                cms.update(data => data[repo].labels = currentLabels)
+                currentCMS.labels[String(currentLabel.id)] = newLabel
+                cms.set({...get(cms), ...{[repo]: currentCMS}})
             }
         }
     
@@ -241,7 +239,7 @@ export async function handleWebhook(request) {
 export async function getPosts(config) {
     let next = null
 	/** @type {import('./types').Posts} */
-	let existingIssues = {}
+	let existingPosts = {}
     let url = `${GITHUB_REPO_BASE_URL}/${config.github_repo}/issues?` + new URLSearchParams({
         'state': 'all',
         'labels': config.label_published,
@@ -262,14 +260,14 @@ export async function getPosts(config) {
 			(issue) => {
                 if (config.allowed_authors.includes(issue.user.login)) {
                     let newPost = parsePost(issue, config)
-                    existingIssues[newPost.front_matter.slug] = newPost
+                    existingPosts[String(issue.number)] = newPost
                 }
 			}
 		);
 		const headers = parseLink(response.headers.get('Link'));
 		next = headers && headers.next;
 	} while (next);
-	return existingIssues
+	return existingPosts
 }
 
 /**
@@ -292,7 +290,7 @@ export async function getTags(config) {
 			/** @param {import('./types').GithubLabel} label */
 			(label) => {
                 if (label.name !== config.label_published && label.name.startsWith(config.label_prefix)) {
-                    existingLabels[labelToTag(label.name, config.label_prefix)] = parsePostLabel(label, config.label_prefix)
+                    existingLabels[String(label.id)] = parsePostLabel(label, config.label_prefix)
                 }
 			}
 		);
@@ -317,7 +315,6 @@ export async function githubSync(config) {
         let existingPosts = await getPosts(currentConfig)
         let existingLabels = await getTags(currentConfig)
         let currentCMS = get(cms)
-        console.log(currentCMS)
         currentCMS[currentConfig.github_repo] = {
             posts: existingPosts,
             labels: existingLabels
@@ -325,6 +322,22 @@ export async function githubSync(config) {
         let existingConfigs = get(parsedConfigs)
         existingConfigs[config.github_repo] = currentConfig
         parsedConfigs.set(existingConfigs)
-        console.log(get(cms))
     }
+}
+
+
+/**
+ * @param {string} repo
+ * @returns {Promise<import('./types').SortedCMS>}
+ */
+export async function getCmsData(repo) {
+    let posts = Object.values(get(cms)[repo].posts || {})
+            .sort(function(a, b) {
+            return b.number - a.number;
+        })
+    let labels = Object.values(get(cms)[repo].labels || {})
+            .sort(function(a, b) {
+            return b.number - a.number;
+        })
+    return {posts, labels}
 }

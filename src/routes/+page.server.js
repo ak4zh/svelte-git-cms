@@ -1,6 +1,5 @@
-import { get } from 'svelte/store';
 import { env } from '$env/dynamic/public'
-import { cms } from '$lib/index'
+import { getCmsData } from '$lib/index'
 import { dev } from '$app/environment';
 
 /** @type {import('./$types').PageServerLoad} */
@@ -10,8 +9,9 @@ export async function load({ params, url }) {
     if (!dev && host.length === 3 && host[0] !== 'www') {
         repo = host[0].replace('--', '/')
     }
+    const {posts, labels} = await getCmsData(repo)
     return {
-        posts: get(cms)[repo]?.posts || {},
-        labels: get(cms)[repo]?.posts || {}
+        posts,
+        labels
     }
 }
