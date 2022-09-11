@@ -151,9 +151,10 @@ function parsePostLabel(label, label_prefix) {
         .replace(/^(-+)[\s\S]+\1/g, '')
         .trim().split('\n')[0].substring(0, 200) 
     data.slug = data.slug || safeSlugify(issue.title, issue.number)
-    let body_html = issue.body_html 
+    let body_html = issue.body_html || ''
     if (Object.keys(data).length) {
-        body_html = issue.body_html.replace(/[\s\S]+?<\/h2>/g, '')
+        // remove front_matter html
+        body_html = body_html.replace(/[\s\S]+?<\/h2>/g, '')
     }
     return {
         front_matter: data,
