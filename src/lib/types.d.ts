@@ -12,7 +12,8 @@ export type Config = {
 	label_published: string,
 	slug_suffix_issue_number?: boolean,
 	allowed_authors?: string,
-	github_token?: string
+	github_token?: string,
+	max_page?: number
 }
 
 export type ParsedConfig = {
@@ -21,7 +22,8 @@ export type ParsedConfig = {
 	label_published: string,
 	allowed_authors: string[],
 	slug_suffix_issue_number: boolean,
-	github_token?: string
+	github_token?: string,
+	max_page?: number
 }
 
 export type ParsedConfig = {

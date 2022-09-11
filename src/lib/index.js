@@ -241,6 +241,7 @@ export async function handleWebhook(request) {
  */
 export async function getPosts(config) {
     let next = ''
+    let page = 0
 	/** @type {import('./types').Posts} */
 	let existingPosts = {}
     let url = `${GITHUB_REPO_BASE_URL}/${config.github_repo}/issues?` + new URLSearchParams({
@@ -254,6 +255,7 @@ export async function getPosts(config) {
         url +=  '&' + new URLSearchParams({'creator': config.allowed_authors[0]})
     }
     do {
+        page += 1
 		const response = await fetch(next || url, { headers: getHeaders(config) });
         const gitIssues = await response.json();
         if ('message' in gitIssues && response.status > 400)
@@ -267,7 +269,9 @@ export async function getPosts(config) {
                 }
 			}
 		);
-        next = parseLink(response.headers.get('Link'))?.next
+        if (!config.max_page || (config.max_page && page < config.max_page)) {
+            next = parseLink(response.headers.get('Link'))?.next
+        }
 	} while (next);
 	return existingPosts
 }
@@ -321,6 +325,7 @@ export async function githubSync(config) {
             posts: existingPosts,
             labels: existingLabels
         }
+        cms.set({...get(cms), ...currentCMS})
         let existingConfigs = get(parsedConfigs)
         existingConfigs[config.github_repo] = currentConfig
         parsedConfigs.set(existingConfigs)
@@ -333,11 +338,11 @@ export async function githubSync(config) {
  * @returns {Promise<import('./types').SortedCMS>}
  */
 export async function getCmsData(repo) {
-    let posts = Object.values(get(cms)[repo].posts || {})
+    let posts = Object.values(get(cms)[repo]?.posts || {})
             .sort(function(a, b) {
             return b.number - a.number;
         })
-    let labels = Object.values(get(cms)[repo].labels || {})
+    let labels = Object.values(get(cms)[repo]?.labels || {})
             .sort(function(a, b) {
             return b.number - a.number;
         })
