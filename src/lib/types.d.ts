@@ -106,9 +106,9 @@ export type BaseIssue = {
 export type GithubIssue = BaseIssue & {
 	user: GithubUser;
 	html_url: string;
-	body: string;
-	body_html: string;
-	body_text: string;
+	body: string | null;
+	body_html: string | null;
+	body_text: string | null;
 	comments_url: string;
 	labels: {
 		name: string;

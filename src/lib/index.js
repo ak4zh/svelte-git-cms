@@ -6,7 +6,7 @@ const ISSUE_ACTIONS = ['opened', 'edited', 'deleted', 'pinned', 'unpinned', 'lab
 
 
 /**
- * @param {string} text
+ * @param {string | null} text
  * @returns {string}
  */
 function readingTime(text) {
