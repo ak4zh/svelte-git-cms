@@ -146,12 +146,13 @@ function parsePostLabel(label, label_prefix) {
  * @returns {import('./types').Post}
  */
  function parsePost(issue, config) {
-    const { data } = parseFrontMatter(issue.body)
+    const { data } = parseFrontMatter(issue.body || '')
     let body_html = issue.body_html 
     if (Object.keys(data).length) {
         body_html = issue.body_html.replace(/[\s\S]+?<\/h2>/g, '')
     }
     data.slug = data.slug || safeSlugify(issue.title, issue.number)
+    data.description = data.description || (issue.body_text || '').split('\n')[0].substring(0, 200) 
     return {
         front_matter: data,
         number: issue.number,
@@ -237,7 +238,7 @@ export async function handleWebhook(request) {
  * @returns {Promise<import('./types').Posts>}
  */
 export async function getPosts(config) {
-    let next = null
+    let next = ''
 	/** @type {import('./types').Posts} */
 	let existingPosts = {}
     let url = `${GITHUB_REPO_BASE_URL}/${config.github_repo}/issues?` + new URLSearchParams({
@@ -248,10 +249,10 @@ export async function getPosts(config) {
     })
     // pull issues created by allowed author only
     if (config.allowed_authors.length === 1) {
-        url += new URLSearchParams({'creator': config.allowed_authors[0]})
+        url +=  '&' + new URLSearchParams({'creator': config.allowed_authors[0]})
     }
     do {
-		const response = await fetch(next?.url || url, { headers: getHeaders(config) });
+		const response = await fetch(next || url, { headers: getHeaders(config) });
         const gitIssues = await response.json();
         if ('message' in gitIssues && response.status > 400)
 			throw new Error(response.status + ' ' + response.statusText + '\n' + (gitIssues && gitIssues.message));
@@ -264,8 +265,7 @@ export async function getPosts(config) {
                 }
 			}
 		);
-		const headers = parseLink(response.headers.get('Link'));
-		next = headers && headers.next;
+        next = parseLink(response.headers.get('Link'))?.next
 	} while (next);
 	return existingPosts
 }
