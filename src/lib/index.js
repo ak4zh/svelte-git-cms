@@ -29,7 +29,7 @@ function readingTime(text) {
         let frontMatters = [...cleanFrontMatter.matchAll(/([\w_]+):(.+)/g)]
         frontMatters.forEach(m => {
             // @ts-ignore
-            parsed.data[m[1]] = m[2]
+            parsed.data[m[1].trim()] = m[2].trim()
         })
     }
     return parsed
