@@ -147,12 +147,14 @@ function parsePostLabel(label, label_prefix) {
  */
  function parsePost(issue, config) {
     const { data } = parseFrontMatter(issue.body || '')
+    data.description = data.description || (issue.body || '')
+        .replace(/^(-+)[\s\S]+\1/g, '')
+        .trim().split('\n')[0].substring(0, 200) 
+    data.slug = data.slug || safeSlugify(issue.title, issue.number)
     let body_html = issue.body_html 
     if (Object.keys(data).length) {
         body_html = issue.body_html.replace(/[\s\S]+?<\/h2>/g, '')
     }
-    data.slug = data.slug || safeSlugify(issue.title, issue.number)
-    data.description = data.description || (issue.body_text || '').split('\n')[0].substring(0, 200) 
     return {
         front_matter: data,
         number: issue.number,
