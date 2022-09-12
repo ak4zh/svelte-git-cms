@@ -249,10 +249,9 @@ export async function getPosts(config) {
         'state': 'all',
         'labels': config.label_published,
         'per_page': '100',
-        'pulls': 'false',
     })
     // pull issues created by allowed author only
-    if (config.allowed_authors.length === 1) {
+    if (config.allowed_authors.length === 1 && config.allowed_authors[0] === config.github_repo.split('/')[0]) {
         url +=  '&' + new URLSearchParams({'creator': config.allowed_authors[0]})
     }
     do {
