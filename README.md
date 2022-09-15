@@ -31,7 +31,7 @@
         - **github_repo**: your github repo `{username}/{repo-name}`
         - **label_prefix**: labels with this prefix will be used as post tags (default value `+`)
         - **label_published**: all issue with this label will appear on webiste (default value `+page`)
-        - **allowed_authors**: comma separtated usernames (default value repo owner)
+        - **allowed_authors**: comma separtated usernames (default value repo owner) can be set to `*`to allow all authors
         - **slug_suffix_issue_number** if enabled slug will end with `-{issue-number}` to ensure unique slug
         - **github_token** provide it else you will hit github api limits
 

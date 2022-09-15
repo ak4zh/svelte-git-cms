@@ -7,7 +7,8 @@ let githubConfig = {
     github_repo: env.PUBLIC_GITHUB_REPO || 'ak4zh/svelte-git-cms',
     github_token: privateEnv.GITHUB_TOKEN,
     label_prefix: env.PUBLIC_LABEL_PREFIX || '',
-    label_published: env.PUBLIC_LABEL_PUBLISHED || ''
+    label_published: env.PUBLIC_LABEL_PUBLISHED || '',
+    allowed_authors: env.PUBLIC_GITHUB_ALLOWED_AUTHORS
 }
 
 /** @type {import('@sveltejs/kit').Handle} */

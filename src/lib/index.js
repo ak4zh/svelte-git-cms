@@ -311,9 +311,13 @@ export async function getTags(config) {
  */
 export async function githubSync(config) {
     if (!Object.keys(get(parsedConfigs)).includes(config.github_repo)) {
-        let author = (config.allowed_authors || '').split(',').filter(e => e)
-        if (!author.length) {
-            author = config.github_repo.split('/')[0].split(',').filter(e => e)
+        /** @type String[] */
+        let author = []
+        if (config.allowed_authors !== '*') {            
+            author = (config.allowed_authors || '').split(',').filter(e => e)
+            if (!author.length && config.allowed_authors !== '*') {
+                author = config.github_repo.split('/')[0].split(',').filter(e => e)
+            }    
         }
         delete config.allowed_authors
         /** @type {import('./types').ParsedConfig} */
