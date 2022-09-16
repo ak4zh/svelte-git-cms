@@ -191,7 +191,7 @@ export async function handleWebhook(request) {
             // received event is an issue event we care about
             && ISSUE_ACTIONS.includes(data.action) 
             // issue is created by allowed authors
-            && config.allowed_authors.includes(data.issue.user.login)
+            && (!config.allowed_authors.length || config.allowed_authors.includes(data.issue.user.login))
         ) {
             /** @type {import('./types').GithubIssue} */
             let currentIssue = data.issue
@@ -263,7 +263,7 @@ export async function getPosts(config) {
         gitIssues.forEach(
 			/** @param {import('./types').GithubIssue} issue */
 			(issue) => {
-                if (config.allowed_authors.includes(issue.user.login)) {
+                if (!config.allowed_authors.length || config.allowed_authors.includes(issue.user.login)) {
                     let newPost = parsePost(issue, config)
                     existingPosts[String(issue.number)] = newPost
                 }
